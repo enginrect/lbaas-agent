@@ -1,6 +1,3 @@
-# =============================
-# Application (Use Cases)
-# =============================
 import re
 from typing import Mapping
 

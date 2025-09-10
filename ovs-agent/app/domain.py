@@ -1,6 +1,3 @@
-# =============================
-# Domain (Pure Functions Only)
-# =============================
 import re
 from dataclasses import dataclass
 

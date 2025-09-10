@@ -1,6 +1,3 @@
-# =============================
-# Adapters (subprocess + docker exec)
-# =============================
 from __future__ import annotations
 import subprocess
 from .ports import CommandRunner, OVNSouthboundPort, OVSBridgePort

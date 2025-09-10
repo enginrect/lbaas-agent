@@ -1,6 +1,3 @@
-# =============================
-# Entrypoint (FastAPI)
-# =============================
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from .adaptors import subprocess_runner, ovn_sb_adapter, ovs_adapter
@@ -38,4 +35,4 @@ def delete_openflow(cookie_value: str):
 
 def main():
     import uvicorn
-    uvicorn.run("app.lbaas_ovs_agent:app", host="127.0.0.1", port=8088)
+    uvicorn.run("app.lbaas_ovs_agent:app", host="0.0.0.0", port=8088)
