@@ -28,6 +28,13 @@ def _is_lbaas_action(line: str) -> bool:
     userdata_ok = f"controller(userdata={USERDATA})" in line
     return bool(reg14_ok and userdata_ok)
 
+def _has_reg14_setfield(line: str) -> bool:
+    return re.search(r"\bset_field:0x[0-9a-fA-F]+->reg14\b", line) is not None
+
+def _is_lbaas_rule_line(line: str) -> bool:
+    required = [f"table={TABLE}", f"priority={PRIORITY}", "tcp"]
+    return all(part in line for part in required) and _has_reg14_setfield(line)
+
 def _find_same_match_lines(ovs: OVSBridgePort, dp_tunnel_key: int, hm_mac: str) -> list[str]:
     txt = ovs.dump_flows(OVS_CONTAINER, OF_VERSION, BRIDGE)
     expected = {
@@ -116,12 +123,9 @@ def delete_openflow_rule(cookie_value: str, ovs: OVSBridgePort) -> Mapping[str, 
         raise RuntimeError(f"Too many OpenFlow rule was found (cookie_value : {cookie_value})")
 
     line = lines[0]
-    required = [f"table={TABLE}", f"priority={PRIORITY}", "tcp", f"controller(userdata={USERDATA})"]
-    for part in required:
-        if part not in line:
-            raise RuntimeError(f"OpenFlow rule validation failed: missing '{part}'")
-    if not _is_lbaas_action(line):
-        raise RuntimeError("OpenFlow rule validation failed: reg14 write action not found")
+
+    if not _is_lbaas_rule_line(line):
+        raise RuntimeError("Matched OpenFLow rule was not LBaaS Rule")
 
     cookie_int = int(cookie_value, 16)
     ovs.del_flows_by_cookie(OVS_CONTAINER, OF_VERSION, BRIDGE, cookie_int)
