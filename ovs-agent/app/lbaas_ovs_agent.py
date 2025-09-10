@@ -6,7 +6,6 @@ from .ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
 
 app = FastAPI(title="LBaaS OVS Agent", version="0.1.0")
 
-# Ports (adapters)
 runner: CommandRunner = subprocess_runner
 ovn: OVNSouthboundPort = ovn_sb_adapter(runner)
 ovs: OVSBridgePort = ovs_adapter(runner)
@@ -34,5 +33,7 @@ def delete_openflow(cookie_value: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 def main():
-    import uvicorn
-    uvicorn.run("app.lbaas_ovs_agent:app", host="0.0.0.0", port=8088)
+    import os, uvicorn
+    host = os.getenv("BIND_HOST", "0.0.0.0")
+    port = int(os.getenv("BIND_PORT", "9406"))
+    uvicorn.run("app.lbaas_ovs_agent:app", host=host, port=port)

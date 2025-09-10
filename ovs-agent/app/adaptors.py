@@ -3,7 +3,6 @@ import subprocess
 from .ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
 
 def subprocess_runner(argv: list[str], timeout: int = 10) -> str:
-    """Run a command without shell. Raise on non-zero."""
     try:
         res = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -76,7 +75,6 @@ class OVSAdapter(OVSBridgePort):
             "ovs-ofctl","-O",of_version,"del-flows",bridge, f"cookie=0x{cookie:x}/-1"
         ])
 
-# factory helpers
 def ovn_sb_adapter(runner: CommandRunner) -> OVNSouthboundPort:
     return OVNAdapter(runner)
 

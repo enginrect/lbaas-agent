@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$")
 MAC_RE = re.compile(r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$")
-HEX_RE = re.compile(r"^[0-9a-fA-F]{1,16}$")  # up to 64-bit cookie
+HEX_RE = re.compile(r"^[0-9a-fA-F]{1,16}$")
 
 @dataclass(frozen=True)
 class PortBindingInfo:
