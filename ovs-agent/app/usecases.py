@@ -23,6 +23,11 @@ def _find_cookie_lines(ovs: OVSBridgePort, cookie_hex: str) -> list[str]:
     pat = re.compile(rf"cookie=0x{cookie_hex.lower()}(?:/|-|\b)")
     return [line for line in txt.splitlines() if pat.search(line)]
 
+def _find_same_match_lines(ovs: OVSBridgePort, dp_tunnel_key: int, hm_mac: str) -> list[str]:
+    match_filter = f"table={TABLE},priority={PRIORITY},tcp,metadata=0x{dp_tunnel_key:x},dl_dst={hm_mac}"
+    txt = ovs.dump_flows_filter(OVS_CONTAINER, OF_VERSION, BRIDGE, match_filter)
+    return [l for l in txt.splitlines() if l.strip()]
+
 def insert_openflow_rule(bm_neutron_port_id: str, cookie_value: str,
                          ovn: OVNSouthboundPort, ovs: OVSBridgePort) -> Mapping[str, str]:
     # 입력 검증
@@ -54,6 +59,16 @@ def insert_openflow_rule(bm_neutron_port_id: str, cookie_value: str,
         hm_mac = parse_service_monitor_src_mac(sm_text)
     except ValueError:
         raise RuntimeError(f"baremetal's service monitor not found (bm_neutron_port_id : {bm_neutron_port_id})")
+
+    same_match_lines = _find_same_match_lines(ovs, dp.dp_tunnel_key, hm_mac)
+    if same_match_lines:
+        exist_cookies = []
+        for ln in same_match_lines:
+            m = re.search(r"cookie=0x([0-9a-fA-F]+)", ln)
+            if m: exist_cookies.append(m.group(1).lower())
+        cookies_info = f" (existing cookies: {', '.join(exist_cookies)})" if exist_cookies else ""
+        raise RuntimeError(f"OpenFlow rule for this match already exists{cookies_info}")
+
 
     # 3) add-flow
     argv = build_add_flow_cmd(

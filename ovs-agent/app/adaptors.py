@@ -44,6 +44,10 @@ class OVSAdapter:
         return self._run(["docker","exec","-i",container,
                           "ovs-ofctl","-O",of_version,"dump-flows",bridge])
 
+    def dump_flows_filter(self, container: str, of_version: str, bridge: str, match_filter: str) -> str:
+        return self._run(["docker","exec","-i",container,
+                          "ovs-ofctl","-O",of_version,"dump-flows",bridge, match_filter])
+
     def add_flow(self, container: str, argv: list[str]) -> None:
         self._run(["docker","exec","-i",container] + argv)
 
