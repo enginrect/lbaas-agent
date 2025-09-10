@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lbaas-ovs-agent"
+version = "0.1.0"
+description = "LBaaS OVS Agent (OVN/OVS --bare parsing)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "ThakiCloud", email = "jaygue.lee@thakicloud.co.kr"}]
+dependencies = [
+  "fastapi==0.115.0",
+  "pydantic==2.8.2",
+  "uvicorn[standard]==0.30.6"
+]
+
+[project.scripts]
+lbaas-ovs-agent = "app.lbaas_ovs_agent:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
