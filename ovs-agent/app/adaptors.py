@@ -2,7 +2,7 @@
 # Adapters (subprocess + docker exec)
 # =============================
 import subprocess
-from ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
+from .ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
 
 def subprocess_runner(argv: list[str], timeout: int = 10) -> str:
     """Run a command without shell. Raise on non-zero."""

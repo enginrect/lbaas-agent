@@ -4,7 +4,7 @@
 import re
 from typing import Mapping
 
-from domain import (
+from .domain import (
     build_add_flow_cmd,
     parse_port_binding_tunnel_key,
     parse_port_binding_datapath,
@@ -12,7 +12,7 @@ from domain import (
     parse_service_monitor_src_mac,
     UUID_RE, HEX_RE
 )
-from ports import OVSBridgePort, OVNSouthboundPort
+from .ports import OVSBridgePort, OVNSouthboundPort
 
 # Defaults matching the doc/spec
 OF_VERSION = "OpenFlow15"

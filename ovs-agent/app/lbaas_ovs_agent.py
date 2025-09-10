@@ -3,9 +3,9 @@
 # =============================
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from adaptors import subprocess_runner, ovn_sb_adapter, ovs_adapter
-from usecases import insert_openflow_rule, delete_openflow_rule
-from ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
+from .adaptors import subprocess_runner, ovn_sb_adapter, ovs_adapter
+from .usecases import insert_openflow_rule, delete_openflow_rule
+from .ports import CommandRunner, OVNSouthboundPort, OVSBridgePort
 
 app = FastAPI(title="LBaaS OVS Agent", version="0.1.0")
 
