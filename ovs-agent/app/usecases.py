@@ -25,7 +25,7 @@ USERDATA = "00.00.00.12.00.00.00.00"
 
 def _find_cookie_lines(ovs: OVSBridgePort, cookie_hex: str) -> list[str]:
     txt = ovs.dump_flows_filter(OVS_CONTAINER, OF_VERSION, BRIDGE, f"cookie=0x{cookie_hex}/-1")
-    return [ln.strip() for ln in txt.splitlines() if ln.strip()]
+    return [ln.strip() for ln in txt.splitlines() if "cookie=" in ln]
 
 def _is_lbaas_action(line: str) -> bool:
     """actions에 reg14 set_field와 지정된 userdata가 있는지 확인.
