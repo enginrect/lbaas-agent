@@ -1,88 +1,117 @@
+# =============================
+# Application (Use Cases)
+# =============================
 import re
 from typing import Mapping
 
-from .domain import (
-    UUID_RE, HEX_RE,
-    parse_port_binding_find,
-    parse_datapath_binding,
-    parse_service_monitor_src_mac,
+from domain import (
     build_add_flow_cmd,
+    parse_port_binding_tunnel_key,
+    parse_port_binding_datapath,
+    parse_datapath_binding_list_for_tunnel_key,
+    parse_service_monitor_src_mac,
+    UUID_RE, HEX_RE
 )
-from .ports import OVNSouthboundPort, OVSBridgePort
+from ports import OVSBridgePort, OVNSouthboundPort
 
-OVN_CONTAINER = "ovn_sb_db"
+# Defaults matching the doc/spec
+OF_VERSION = "OpenFlow15"
+BRIDGE = "br-int"
+TABLE = 36
+PRIORITY = 110
 OVS_CONTAINER = "openvswitch_vswitchd"
-BRIDGE        = "br-int"
-OF_VERSION    = "OpenFlow15"
-TABLE         = 36
-PRIORITY      = 110
-USERDATA      = "00.00.00.12.00.00.00.00"
+OVN_CONTAINER = "ovn_sb_db"
+USERDATA = "00.00.00.12.00.00.00.00"
 
 def _find_cookie_lines(ovs: OVSBridgePort, cookie_hex: str) -> list[str]:
-    txt = ovs.dump_flows(OVS_CONTAINER, OF_VERSION, BRIDGE)
-    pat = re.compile(rf"cookie=0x{cookie_hex.lower()}(?:/|-|\b)")
-    return [line for line in txt.splitlines() if pat.search(line)]
+    txt = ovs.dump_flows_filter(OVS_CONTAINER, OF_VERSION, BRIDGE, f"cookie=0x{cookie_hex}/-1")
+    return [ln.strip() for ln in txt.splitlines() if ln.strip()]
+
+def _is_lbaas_action(line: str) -> bool:
+    """actions에 reg14 set_field와 지정된 userdata가 있는지 확인.
+    NXM_NX_REG14[] 표현은 검사하지 않는다(요청사항)."""
+    reg14_ok = re.search(r"set_field:0x[0-9a-fA-F]+->reg14\b", line) is not None
+    userdata_ok = f"controller(userdata={USERDATA})" in line
+    return bool(reg14_ok and userdata_ok)
 
 def _find_same_match_lines(ovs: OVSBridgePort, dp_tunnel_key: int, hm_mac: str) -> list[str]:
-    match_filter = f"table={TABLE},priority={PRIORITY},tcp,metadata=0x{dp_tunnel_key:x},dl_dst={hm_mac}"
-    txt = ovs.dump_flows_filter(OVS_CONTAINER, OF_VERSION, BRIDGE, match_filter)
-    return [l for l in txt.splitlines() if l.strip()]
+    """cookie 제외 동일 매치( table, priority, tcp, metadata, dl_dst ) 존재 여부 확인.
+    ovs-ofctl FILTER는 priority를 지원하지 않으므로 전체 dump 후 파이썬에서 AND 판별.
+    각 라인을 'actions=' 앞까지 ',' 단위로 토큰화해서 AND 매칭한다."""
+    txt = ovs.dump_flows(OVS_CONTAINER, OF_VERSION, BRIDGE)
+    expected = {
+        f"table={TABLE}",
+        f"priority={PRIORITY}",
+        "tcp",
+        f"metadata=0x{dp_tunnel_key:x}",
+        f"dl_dst={hm_mac}",
+    }
+    hits: list[str] = []
+    for raw in txt.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        lhs = line.split("actions=", 1)[0]
+        tokens = {t.strip() for t in lhs.split(",") if t.strip()}
+        if expected.issubset(tokens):
+            hits.append(line)
+    return hits
 
 def insert_openflow_rule(bm_neutron_port_id: str, cookie_value: str,
                          ovn: OVNSouthboundPort, ovs: OVSBridgePort) -> Mapping[str, str]:
-    # 입력 검증
+    # 0) 입력 검증
     if not UUID_RE.match(bm_neutron_port_id):
-        raise ValueError("bm_neutron_port_id must be UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)")
+        raise ValueError("bm_neutron_port_id must be UUID like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
     if not HEX_RE.match(cookie_value):
-        raise ValueError("cookie_value must be 1..16 hex digits (without 0x)")
+        raise ValueError("cookie_value must be 1..16 hex chars (without 0x)")
+
     cookie_value = cookie_value.lower()
 
-    # 1) 쿠키 중복 검사
+    # 1) 쿠키 중복 확인
     if _find_cookie_lines(ovs, cookie_value):
         raise RuntimeError("cookie_value is already used")
 
-    # 2) OVN 조회 (전부 --bare 출력 파싱)
-    pb_text = ovn.port_binding_find(OVN_CONTAINER, bm_neutron_port_id)
-    try:
-        pb = parse_port_binding_find(pb_text)
-    except ValueError as e:
-        raise RuntimeError(f"baremetal's logical switch port not found (bm_neutron_port_id : {bm_neutron_port_id})")
+    # 2) OVN 조회 (모두 bare / list)
+    pb_tk_text = ovn.port_binding_tunnel_key(OVN_CONTAINER, bm_neutron_port_id)
+    pb_tunnel_key = parse_port_binding_tunnel_key(pb_tk_text)
 
-    dp_text = ovn.datapath_binding_find(OVN_CONTAINER, pb.datapath_uuid)
-    try:
-        dp = parse_datapath_binding(dp_text, pb.datapath_uuid)
-    except ValueError:
-        raise RuntimeError(f"baremetal's datapath not found (bm_neutron_port_id : {bm_neutron_port_id})")
+    dp_text = ovn.port_binding_datapath(OVN_CONTAINER, bm_neutron_port_id)
+    dp_uuid = parse_port_binding_datapath(dp_text)
 
-    sm_text = ovn.service_monitor_find(OVN_CONTAINER, bm_neutron_port_id)
-    try:
-        hm_mac = parse_service_monitor_src_mac(sm_text)
-    except ValueError:
-        raise RuntimeError(f"baremetal's service monitor not found (bm_neutron_port_id : {bm_neutron_port_id})")
+    dp_list_text = ovn.datapath_binding_list(OVN_CONTAINER, dp_uuid)
+    dp_tunnel_key = parse_datapath_binding_list_for_tunnel_key(dp_list_text)
 
-    same_match_lines = _find_same_match_lines(ovs, dp.dp_tunnel_key, hm_mac)
-    if same_match_lines:
+    sm_text = ovn.service_monitor_src_mac(OVN_CONTAINER, bm_neutron_port_id)
+    hm_mac = parse_service_monitor_src_mac(sm_text)
+
+    # 3) 동일 매치 사전 차단 (덮어쓰기 방지) + 액션 성격 구분
+    same = _find_same_match_lines(ovs, dp_tunnel_key, hm_mac)
+    if same:
         exist_cookies = []
-        for ln in same_match_lines:
+        has_our_action = False
+        for ln in same:
             m = re.search(r"cookie=0x([0-9a-fA-F]+)", ln)
-            if m: exist_cookies.append(m.group(1).lower())
-        cookies_info = f" (existing cookies: {', '.join(exist_cookies)})" if exist_cookies else ""
-        raise RuntimeError(f"OpenFlow rule for this match already exists{cookies_info}")
+            if m:
+                exist_cookies.append(m.group(1).lower())
+            if _is_lbaas_action(ln):
+                has_our_action = True
+        suffix = f" (existing cookies: {', '.join(exist_cookies)})" if exist_cookies else ""
+        if has_our_action:
+            raise RuntimeError(f"OpenFlow rule for this match already exists as LBaaS rule{suffix}")
+        else:
+            raise RuntimeError(f"Conflicting OpenFlow rule exists with the same match; refusing to override{suffix}")
 
-
-    # 3) add-flow
+    # 4) add-flow
     argv = build_add_flow_cmd(
         OF_VERSION, BRIDGE,
-        cookie_hex=cookie_value, table=TABLE, priority=PRIORITY,
-        dp_tunnel_key=dp.dp_tunnel_key, hm_mac=hm_mac,
-        pb_tunnel_key=pb.pb_tunnel_key, userdata=USERDATA
+        cookie_hex=cookie_value,
+        table=TABLE, priority=PRIORITY,
+        dp_tunnel_key=dp_tunnel_key, hm_mac=hm_mac,
+        pb_tunnel_key=pb_tunnel_key, userdata=USERDATA
     )
     ovs.add_flow(OVS_CONTAINER, argv)
 
-    return {
-        "cookie_value": cookie_value,
-        "rule": argv[-1]
-    }
+    return {"cookie_value": cookie_value, "rule": argv[-1]}
 
 def delete_openflow_rule(cookie_value: str, ovs: OVSBridgePort) -> Mapping[str, bool]:
     if not HEX_RE.match(cookie_value):
@@ -100,6 +129,9 @@ def delete_openflow_rule(cookie_value: str, ovs: OVSBridgePort) -> Mapping[str, 
     for part in required:
         if part not in line:
             raise RuntimeError(f"OpenFlow rule validation failed: missing '{part}'")
+    # actions 성격(우리 룰) 확인: reg14 set_field 필수
+    if not _is_lbaas_action(line):
+        raise RuntimeError("OpenFlow rule validation failed: reg14 write action not found")
 
     cookie_int = int(cookie_value, 16)
     ovs.del_flows_by_cookie(OVS_CONTAINER, OF_VERSION, BRIDGE, cookie_int)
