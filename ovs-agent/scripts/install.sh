@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/<ORG>/<REPO>.git}"  # <- 여길 실제 주소로
+REPO_URL="${REPO_URL:-https://github.com/enginrect/lbaas-agent.git}"
 APP_DIR="/opt/lbaasovsagent"
 VENV_DIR="$APP_DIR/venv"
 SERVICE="lbaas-ovs-agent"
