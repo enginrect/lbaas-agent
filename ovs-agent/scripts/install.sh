@@ -7,8 +7,8 @@ VENV_DIR="$APP_DIR/venv"
 SERVICE="lbaas-ovs-agent"
 
 # 의존 패키지
-sudo apt-get update -y
-sudo apt-get install -y python3-venv python3-pip git
+#sudo apt-get update -y
+#sudo apt-get install -y python3-venv python3-pip git
 
 # 운영 사용자
 id lbaasovsagent >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin lbaasovsagent
