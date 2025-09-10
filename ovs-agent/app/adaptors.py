@@ -38,8 +38,6 @@ class OVNAdapter(OVNSouthboundPort):
         ])
 
     def datapath_binding_list(self, container: str, datapath_uuid: str) -> str:
-        # Datapath_Binding은 _uuid로만 접근 → list 사용
-        # 숫자만 한 줄로 받기 위해 --bare + --columns=tunnel_key 사용
         return self._run([
             "docker","exec","-i",container,
             "ovn-sbctl","--bare","--columns=tunnel_key",

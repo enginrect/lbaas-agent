@@ -21,7 +21,6 @@ def _lines(s: str) -> list[str]:
     return [ln.strip() for ln in (s or "").splitlines() if ln.strip()]
 
 def parse_port_binding_tunnel_key(text: str) -> int:
-    """ovn-sbctl --bare --columns=tunnel_key find port_binding logical_port=..."""
     ls = _lines(text)
     if not ls:
         raise ValueError("baremetal's logical switch port not found")
@@ -32,7 +31,6 @@ def parse_port_binding_tunnel_key(text: str) -> int:
         raise ValueError("invalid port_binding.tunnel_key")
 
 def parse_port_binding_datapath(text: str) -> str:
-    """ovn-sbctl --bare --columns=datapath find port_binding logical_port=..."""
     ls = _lines(text)
     if not ls:
         raise ValueError("baremetal's datapath not found")
@@ -42,19 +40,17 @@ def parse_port_binding_datapath(text: str) -> str:
     return dp_uuid
 
 def parse_datapath_binding_list_for_tunnel_key(text: str) -> int:
-    """ovn-sbctl list datapath_binding <uuid> → parse line 'tunnel_key : <int>'"""
-    # Accept formats: 'tunnel_key          : 4' or 'tunnel_key : 0x4'
-    for ln in _lines(text):
-        if ln.lower().startswith("tunnel_key") and ":" in ln:
-            right = ln.split(":",1)[1].strip()
-            try:
-                return int(right, 0)
-            except ValueError:
-                pass
-    raise ValueError("datapath_binding.tunnel_key not found")
+    ls = _lines(text)
+    if not ls:
+        raise ValueError("datapath_binding.tunnel_key not found")
+    val = ls[0]
+    try:
+        return int(val, 0)
+    except ValueError:
+        raise ValueError("invalid datapath_binding.tunnel_key")
+
 
 def parse_service_monitor_src_mac(text: str) -> str:
-    """ovn-sbctl --bare --columns=src_mac find service_monitor logical_port=..."""
     ls = _lines(text)
     if not ls:
         raise ValueError("baremetal's service monitor not found")
