@@ -8,7 +8,7 @@ from domain import (
     parse_service_monitor_src_mac,
     build_add_flow_cmd,
 )
-from ports import OVNSouthboundPort, OVSBridgePort
+from .ports import OVNSouthboundPort, OVSBridgePort
 
 OVN_CONTAINER = "ovn_sb_db"
 OVS_CONTAINER = "openvswitch_vswitchd"
