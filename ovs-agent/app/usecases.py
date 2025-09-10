@@ -1,7 +1,7 @@
 import re
 from typing import Mapping
 
-from domain import (
+from .domain import (
     UUID_RE, HEX_RE,
     parse_port_binding_find,
     parse_datapath_binding,
