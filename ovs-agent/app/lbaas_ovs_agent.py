@@ -35,3 +35,7 @@ def delete_openflow(cookie_value: str):
         return delete_openflow_rule(cookie_value, ovs)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+def main():
+    import uvicorn
+    uvicorn.run("app.lbaas_ovs_agent:app", host="127.0.0.1", port=8088)
