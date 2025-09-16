@@ -1,0 +1,17 @@
+[Unit]
+Description=LBaaS OVS Agent (Go)
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+EnvironmentFile=-/etc/default/lbaas-ovs-agent-go
+User=lbaasovsagent
+Group=lbaasovsagent
+ExecStart=/opt/lbaas-ovs-agent/bin/lbaas-ovs-agent -bind 0.0.0.0:9406
+Restart=on-failure
+RestartSec=2s
+AmbientCapabilities=CAP_NET_ADMIN
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
